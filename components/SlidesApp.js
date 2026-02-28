@@ -6,6 +6,7 @@ import TopBar from './TopBar';
 import Sidebar from './Sidebar';
 import CodeEditor from './CodeEditor';
 import SlidePreview from './SlidePreview';
+import CanvasEditor from './CanvasEditor';
 import GridView from './GridView';
 import PresentMode from './PresentMode';
 import TemplateModal from './TemplateModal';
@@ -121,6 +122,7 @@ export default function SlidesApp() {
   const [isPresenting, setIsPresenting] = useState(false);
   const [showTemplates, setShowTemplates] = useState(false);
   const [showShortcuts, setShowShortcuts] = useState(false);
+  const [designMode, setDesignMode] = useState(false);
 
   // ── Status ─────────────────────────────────────────────────────────────────
   const [isDirty, setIsDirty] = useState(false);
@@ -530,15 +532,29 @@ export default function SlidesApp() {
               )}
             </div>
 
-            {/* Preview column */}
+            {/* Preview / Canvas column */}
             <div className={`preview-col ${splitMode === 'editor' ? 'hidden' : ''}`}>
-              <SlidePreview
-                code={activeSlide?.code ?? ''}
-                slideIndex={activeIndex}
-                totalSlides={slides.length}
-                onPrev={() => navigate(-1)}
-                onNext={() => navigate(1)}
-              />
+              {designMode ? (
+                <CanvasEditor
+                  code={activeSlide?.code ?? ''}
+                  onChange={code => updateSlide(activeId, { code })}
+                  slideIndex={activeIndex}
+                  totalSlides={slides.length}
+                  onPrev={() => navigate(-1)}
+                  onNext={() => navigate(1)}
+                  onDesignModeToggle={() => setDesignMode(v => !v)}
+                />
+              ) : (
+                <SlidePreview
+                  code={activeSlide?.code ?? ''}
+                  slideIndex={activeIndex}
+                  totalSlides={slides.length}
+                  onPrev={() => navigate(-1)}
+                  onNext={() => navigate(1)}
+                  designMode={designMode}
+                  onDesignModeToggle={() => setDesignMode(v => !v)}
+                />
+              )}
             </div>
           </div>
         )}
