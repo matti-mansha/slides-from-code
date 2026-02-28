@@ -1,9 +1,10 @@
 'use client';
 
-import { useEffect, useState, useRef, useCallback } from 'react';
+import { useEffect, useState, useRef } from 'react';
 
 const ZOOM_STEPS = [25, 50, 75, 100, 125, 150, 200];
-const SLIDE_NATURAL_W = 1280; // px — 16:9 base width
+const SLIDE_W = 1280; // natural px — 16:9 base width
+const SLIDE_H = 720;  // natural px
 
 export default function SlidePreview({
   code,
@@ -38,23 +39,31 @@ export default function SlidePreview({
     return () => obs.disconnect();
   }, []);
 
-  // Derived zoom %
-  const fitZoomPct = stageW > 0
-    ? Math.min((stageW - 32) / SLIDE_NATURAL_W, (stageH - 32) / (SLIDE_NATURAL_W * 9 / 16)) * 100
-    : 100;
-  const zoomPct = zoom === 'fit' ? fitZoomPct : zoom;
-  const frameW = SLIDE_NATURAL_W * zoomPct / 100;
-  const frameH = frameW * 9 / 16;
+  // ── Zoom math ──
+  // fitScale: largest scale where slide fits fully in the stage (with 16px gap each side)
+  const fitScale = stageW > 0
+    ? Math.min((stageW - 32) / SLIDE_W, (stageH - 32) / SLIDE_H)
+    : 1;
+  const scale  = zoom === 'fit' ? fitScale : zoom / 100;
+
+  // The wrapper div has the VISUAL (scaled) size so layout + scrolling work correctly.
+  // The iframe inside is always SLIDE_W×SLIDE_H and shrunk with CSS transform.
+  const visW = Math.round(SLIDE_W * scale);
+  const visH = Math.round(SLIDE_H * scale);
+
+  const zoomPct = Math.round((zoom === 'fit' ? fitScale : zoom / 100) * 100);
 
   function zoomIn() {
-    const cur = zoom === 'fit' ? fitZoomPct : zoom;
-    const next = ZOOM_STEPS.find(z => z > cur);
+    const cur = Math.round(fitScale * 100);
+    const base = zoom === 'fit' ? cur : zoom;
+    const next = ZOOM_STEPS.find(z => z > base);
     if (next) setZoom(next);
   }
 
   function zoomOut() {
-    const cur = zoom === 'fit' ? fitZoomPct : zoom;
-    const next = [...ZOOM_STEPS].reverse().find(z => z < cur);
+    const cur = Math.round(fitScale * 100);
+    const base = zoom === 'fit' ? cur : zoom;
+    const next = [...ZOOM_STEPS].reverse().find(z => z < base);
     if (next) setZoom(next);
   }
 
@@ -77,7 +86,7 @@ export default function SlidePreview({
           <button
             className="btn btn-ghost btn-sm"
             onClick={() => setZoom('fit')}
-            style={{ minWidth: 46, fontSize: 11 }}
+            style={{ minWidth: 52, fontSize: 11 }}
             title="Fit to window"
           >
             {zoomLabel}
@@ -121,18 +130,27 @@ export default function SlidePreview({
           padding: 16,
         }}
       >
-        <div style={{ flexShrink: 0 }}>
+        {/*
+          Wrapper is the VISUAL size (scaled). overflow:hidden clips the
+          transform-scaled iframe so no content spills out.
+        */}
+        <div style={{ flexShrink: 0, width: visW, height: visH, overflow: 'hidden', position: 'relative' }}>
           <iframe
             key={designMode ? 'design' : 'preview'}
             title="slide-preview"
             sandbox="allow-scripts allow-same-origin"
             srcDoc={renderedCode}
             style={{
-              width: frameW,
-              height: frameH,
+              width: SLIDE_W,
+              height: SLIDE_H,
               border: 'none',
               display: 'block',
               background: '#fff',
+              transform: `scale(${scale})`,
+              transformOrigin: 'top left',
+              position: 'absolute',
+              top: 0,
+              left: 0,
             }}
           />
         </div>

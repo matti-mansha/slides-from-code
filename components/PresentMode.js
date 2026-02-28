@@ -2,21 +2,36 @@
 
 import { useState, useEffect } from 'react';
 
+const SLIDE_W = 1280;
+const SLIDE_H = 720;
+
 export default function PresentMode({ slides, startIndex, onClose }) {
   const [index, setIndex] = useState(startIndex ?? 0);
   const [animClass, setAnimClass] = useState('');
   const [showNotes, setShowNotes] = useState(false);
-  const [dir, setDir] = useState(1); // 1=forward, -1=back
+  const [scale, setScale] = useState(1);
 
   const slide = slides[index];
   const progress = slides.length > 1 ? ((index + 1) / slides.length) * 100 : 100;
 
+  // Compute the largest scale where the 1280×720 slide fits the screen
+  useEffect(() => {
+    function calcScale() {
+      const s = Math.min(
+        window.innerWidth  / SLIDE_W,
+        window.innerHeight / SLIDE_H
+      );
+      setScale(s);
+    }
+    calcScale();
+    window.addEventListener('resize', calcScale);
+    return () => window.removeEventListener('resize', calcScale);
+  }, []);
+
   function go(delta) {
     const next = index + delta;
     if (next < 0 || next >= slides.length) return;
-    setDir(delta);
     setAnimClass('');
-    // Defer so animation re-triggers
     requestAnimationFrame(() => {
       setIndex(next);
       const cls = delta > 0 ? 'slide-enter-right' : 'slide-enter-left';
@@ -35,6 +50,9 @@ export default function PresentMode({ slides, startIndex, onClose }) {
     return () => window.removeEventListener('keydown', onKey);
   });
 
+  const visW = Math.round(SLIDE_W * scale);
+  const visH = Math.round(SLIDE_H * scale);
+
   return (
     <div className="present-overlay">
       {/* Progress bar */}
@@ -44,11 +62,31 @@ export default function PresentMode({ slides, startIndex, onClose }) {
       <div className="present-stage">
         <button className="present-exit-btn" onClick={onClose}>Exit (Esc)</button>
 
-        <div className={`present-slide ${animClass}`} key={index}>
+        {/*
+          Wrapper is the VISUAL size of the scaled slide.
+          The iframe renders at natural 1280×720 and is shrunk with CSS scale,
+          so slide content with fixed px widths is always fully visible.
+        */}
+        <div
+          className={`present-slide ${animClass}`}
+          key={index}
+          style={{ width: visW, height: visH }}
+        >
           <iframe
             title={`present-${index}`}
             sandbox="allow-scripts allow-same-origin"
             srcDoc={slide?.code || ''}
+            style={{
+              position: 'absolute',
+              top: 0,
+              left: 0,
+              width: SLIDE_W,
+              height: SLIDE_H,
+              border: 'none',
+              background: '#fff',
+              transform: `scale(${scale})`,
+              transformOrigin: 'top left',
+            }}
           />
         </div>
 

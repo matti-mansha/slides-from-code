@@ -306,13 +306,14 @@ body {
   background: #fff;
   position: relative;
 }
+/* Scale is set via inline style by ThumbIframe (ResizeObserver-based) */
 .thumb-frame iframe {
-  width: 400%;
-  height: 400%;
-  transform: scale(0.25);
-  transform-origin: top left;
-  pointer-events: none;
+  position: absolute;
+  top: 0;
+  left: 0;
   border: none;
+  pointer-events: none;
+  transform-origin: top left;
 }
 
 .thumb-meta {
@@ -571,13 +572,14 @@ body {
   background: #fff;
   position: relative;
 }
+/* Scale is set via inline style by ThumbIframe (ResizeObserver-based) */
 .grid-card-thumb iframe {
-  width: 400%;
-  height: 400%;
-  transform: scale(0.25);
-  transform-origin: top left;
-  pointer-events: none;
+  position: absolute;
+  top: 0;
+  left: 0;
   border: none;
+  pointer-events: none;
+  transform-origin: top left;
 }
 .grid-card-info {
   padding: 9px 13px;
@@ -625,16 +627,12 @@ body {
   position: relative;
 }
 .present-slide {
-  width: min(100vw, calc(100vh * 16 / 9));
-  height: min(100vh, calc(100vw * 9 / 16));
+  /* width/height set inline by PresentMode (scale = Math.min(vw/1280, vh/720)) */
   position: relative;
+  overflow: hidden;
+  flex-shrink: 0;
 }
-.present-slide iframe {
-  width: 100%;
-  height: 100%;
-  border: none;
-  background: #fff;
-}
+/* iframe styled inline: always 1280×720 with CSS scale(s) */
 
 /* Slide transition animations */
 .present-slide.fade-enter { animation: fade-in 0.4s ease forwards; }

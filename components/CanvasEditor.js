@@ -198,7 +198,8 @@ function rgbToHex(rgb) {
 
 // ─── Zoom helpers ─────────────────────────────────────────────────────────────
 const ZOOM_STEPS = [25, 50, 75, 100, 125, 150, 200];
-const SLIDE_NATURAL_W = 1280;
+const SLIDE_W = 1280;
+const SLIDE_H = 720;
 
 // ─── Property Row ─────────────────────────────────────────────────────────────
 function PropRow({ label, children }) {
@@ -233,13 +234,15 @@ export default function CanvasEditor({ code, onChange, slideIndex, totalSlides, 
     return () => obs.disconnect();
   }, []);
 
-  // Derived frame size
-  const fitPct = stageW > 0
-    ? Math.min((stageW - 32) / SLIDE_NATURAL_W, (stageH - 32) / (SLIDE_NATURAL_W * 9 / 16)) * 100
-    : 100;
-  const zoomPct = zoom === 'fit' ? fitPct : zoom;
-  const frameW = SLIDE_NATURAL_W * zoomPct / 100;
-  const frameH = frameW * 9 / 16;
+  // ── Zoom math (same pattern as SlidePreview) ──
+  // fitScale: largest scale where slide fits in stage with 16px gap each side
+  const fitScale = stageW > 0
+    ? Math.min((stageW - 32) / SLIDE_W, (stageH - 32) / SLIDE_H)
+    : 1;
+  const scale = zoom === 'fit' ? fitScale : zoom / 100;
+  // Visual (layout) size of the wrapper — iframe is always SLIDE_W×SLIDE_H inside
+  const visW = Math.round(SLIDE_W * scale);
+  const visH = Math.round(SLIDE_H * scale);
 
   // Listen for messages from the injected iframe script
   useEffect(() => {
@@ -264,12 +267,12 @@ export default function CanvasEditor({ code, onChange, slideIndex, totalSlides, 
   function deselect()          { send({ t: 'desel' }); setSelected(null); }
 
   function zoomIn() {
-    const cur = zoom === 'fit' ? fitPct : zoom;
+    const cur = Math.round((zoom === 'fit' ? fitScale : zoom / 100) * 100);
     const next = ZOOM_STEPS.find(z => z > cur);
     if (next) setZoom(next);
   }
   function zoomOut() {
-    const cur = zoom === 'fit' ? fitPct : zoom;
+    const cur = Math.round((zoom === 'fit' ? fitScale : zoom / 100) * 100);
     const next = [...ZOOM_STEPS].reverse().find(z => z < cur);
     if (next) setZoom(next);
   }
@@ -331,15 +334,34 @@ export default function CanvasEditor({ code, onChange, slideIndex, totalSlides, 
             padding: 16,
             background: 'repeating-linear-gradient(45deg, var(--surface) 0, var(--surface) 10px, var(--bg) 10px, var(--bg) 20px)',
           }}
-          onClick={e => { if (e.target === e.currentTarget) deselect(); }}
+          onClick={e => { if (e.target === e.currentTarget) deselect(); }}  // deselect on stage bg click
         >
-          <div style={{ flexShrink: 0, position: 'relative' }}>
+          {/*
+            Wrapper is the VISUAL size (scaled). The iframe is always
+            SLIDE_W×SLIDE_H and shrunk with CSS transform so slide content
+            sees the correct 1280×720 viewport and never clips.
+          */}
+          <div
+            style={{ flexShrink: 0, width: visW, height: visH, overflow: 'hidden', position: 'relative' }}
+            onClick={e => { if (e.target === e.currentTarget) deselect(); }}
+          >
             <iframe
               ref={iframeRef}
               title="design-canvas"
               sandbox="allow-scripts allow-same-origin"
               srcDoc={instrumentedCode}
-              style={{ width: frameW, height: frameH, border: 'none', display: 'block', background: '#fff' }}
+              style={{
+                width: SLIDE_W,
+                height: SLIDE_H,
+                border: 'none',
+                display: 'block',
+                background: '#fff',
+                transform: `scale(${scale})`,
+                transformOrigin: 'top left',
+                position: 'absolute',
+                top: 0,
+                left: 0,
+              }}
             />
           </div>
         </div>

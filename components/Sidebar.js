@@ -1,6 +1,47 @@
 'use client';
 
-import { useRef, useState } from 'react';
+import { useRef, useState, useEffect } from 'react';
+
+/* ─── Thumbnail iframe ───────────────────────────────────────────────────────
+   Renders the slide at its natural 1280×720 size, then scales it down to fill
+   the thumb-frame container. Uses ResizeObserver so scale is always exact.
+──────────────────────────────────────────────────────────────────────────── */
+function ThumbIframe({ code, title }) {
+  const wrapRef = useRef(null);
+  const [scale, setScale] = useState(0.18); // sensible default for 248px sidebar
+
+  useEffect(() => {
+    const el = wrapRef.current;
+    if (!el) return;
+    const obs = new ResizeObserver(([entry]) => {
+      setScale(entry.contentRect.width / 1280);
+    });
+    obs.observe(el);
+    return () => obs.disconnect();
+  }, []);
+
+  return (
+    <div ref={wrapRef} className="thumb-frame">
+      <iframe
+        title={title}
+        sandbox="allow-scripts allow-same-origin"
+        srcDoc={code}
+        tabIndex={-1}
+        style={{
+          position: 'absolute',
+          top: 0,
+          left: 0,
+          width: 1280,
+          height: 720,
+          border: 'none',
+          transform: `scale(${scale})`,
+          transformOrigin: 'top left',
+          pointerEvents: 'none',
+        }}
+      />
+    </div>
+  );
+}
 
 export default function Sidebar({ slides, activeId, onSelect, onAdd, onDuplicate, onDelete, onReorder }) {
   const [dragId, setDragId] = useState(null);
@@ -101,14 +142,7 @@ export default function Sidebar({ slides, activeId, onSelect, onAdd, onDuplicate
               onDrop={e => handleDrop(e, slide.id)}
             >
               {/* Thumbnail iframe */}
-              <div className="thumb-frame">
-                <iframe
-                  title={`thumb-${slide.id}`}
-                  sandbox="allow-scripts allow-same-origin"
-                  srcDoc={slide.code}
-                  tabIndex={-1}
-                />
-              </div>
+              <ThumbIframe code={slide.code} title={`thumb-${slide.id}`} />
 
               {/* Meta */}
               <div className="thumb-meta">
