@@ -1,0 +1,106 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Slides from Code</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&family=Outfit:wght@300;400;500;600;700&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <div class="app-shell">
+      <header class="topbar">
+        <div class="brand">
+          <div class="brand-badge">S</div>
+          <div>
+            <h1>Slides from Code</h1>
+            <p>Build full decks with HTML/CSS/JS slides.</p>
+          </div>
+        </div>
+        <div class="topbar-actions">
+          <button id="newDeckBtn" class="btn ghost">New deck</button>
+          <label class="btn ghost file-btn" for="importInput">Import</label>
+          <input id="importInput" type="file" accept="application/json" hidden />
+          <button id="exportBtn" class="btn ghost">Export</button>
+          <button id="presentBtn" class="btn accent">Present</button>
+        </div>
+      </header>
+
+      <main class="workspace">
+        <aside class="slides-panel">
+          <div class="panel-title-row">
+            <h2>Slides</h2>
+            <div class="slide-controls">
+              <button id="addSlideBtn" class="icon-btn" title="Add slide">+</button>
+              <button id="duplicateSlideBtn" class="icon-btn" title="Duplicate slide">⧉</button>
+              <button id="deleteSlideBtn" class="icon-btn danger" title="Delete slide">×</button>
+            </div>
+          </div>
+          <div id="slidesList" class="slides-list"></div>
+        </aside>
+
+        <section class="editor-preview">
+          <section class="editor-card">
+            <div class="card-head">
+              <input id="slideTitleInput" class="title-input" placeholder="Slide title" />
+              <span id="editorMeta" class="meta"></span>
+            </div>
+            <div class="editor-area">
+              <div id="lineNumbers" class="line-numbers" aria-hidden="true"></div>
+              <textarea
+                id="codeInput"
+                spellcheck="false"
+                placeholder="Write complete HTML for this slide. Inline CSS and JS supported."
+              ></textarea>
+            </div>
+            <div class="editor-footer">
+              <div class="hint">⌘/Ctrl + Enter to render · ⌘/Ctrl + S to save deck</div>
+              <div class="footer-actions">
+                <button id="runPreviewBtn" class="btn accent">Render slide</button>
+              </div>
+            </div>
+          </section>
+
+          <section class="preview-card">
+            <div class="card-head preview-head">
+              <h3>Slide preview</h3>
+              <div class="preview-actions">
+                <button id="prevSlideBtn" class="btn tiny ghost">Previous</button>
+                <button id="nextSlideBtn" class="btn tiny ghost">Next</button>
+              </div>
+            </div>
+            <div class="preview-stage" id="previewStage">
+              <iframe id="previewFrame" title="Slide preview" sandbox="allow-scripts allow-same-origin"></iframe>
+            </div>
+          </section>
+        </section>
+      </main>
+
+      <footer class="statusbar">
+        <span id="statusText">Ready</span>
+        <span id="deckMeta">0 slides</span>
+      </footer>
+    </div>
+
+    <div id="toast" class="toast"></div>
+
+    <div id="presentOverlay" class="present-overlay" hidden>
+      <button id="closePresentBtn" class="present-close">Exit presentation (Esc)</button>
+      <div class="present-stage">
+        <iframe id="presentFrame" sandbox="allow-scripts allow-same-origin" title="Presentation"></iframe>
+      </div>
+      <div class="present-controls">
+        <button id="presentPrevBtn" class="btn ghost">◀ Prev</button>
+        <span id="presentCounter">1 / 1</span>
+        <button id="presentNextBtn" class="btn ghost">Next ▶</button>
+      </div>
+    </div>
+
+    <script src="app.js"></script>
+  </body>
+</html>
