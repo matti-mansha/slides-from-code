@@ -1,5 +1,5 @@
-import SlidesStudio from '@/components/SlidesStudio';
+import SlidesApp from '@/components/SlidesApp';
 
 export default function HomePage() {
-  return <SlidesStudio />;
+  return <SlidesApp />;
 }
