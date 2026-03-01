@@ -14,6 +14,16 @@ import ShortcutsModal from './ShortcutsModal';
 
 import { INITIAL_DECK, createSlide } from '@/lib/defaultDeck';
 import { saveDeck, loadDeck } from '@/lib/storage';
+import {
+  isFileSystemSupported,
+  pickFolder,
+  requestPermission,
+  readDeckFromFolder,
+  writeDeckToFolder,
+  saveHandleToIDB,
+  loadHandleFromIDB,
+  clearHandleFromIDB,
+} from '@/lib/fileSystem';
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -129,6 +139,9 @@ export default function SlidesApp() {
   const [status, setStatus] = useState('Ready');
   const [toasts, setToasts] = useState([]);
 
+  // ── File System State ──────────────────────────────────────────────────────
+  const [folderHandle, setFolderHandle] = useState(null);
+
   // ── History (for structural undo/redo) ────────────────────────────────────
   const historyRef = useRef([]);
   const historyIdxRef = useRef(0);
@@ -142,6 +155,7 @@ export default function SlidesApp() {
     [slides, activeId]
   );
   const activeSlide = slides[activeIndex] ?? slides[0] ?? null;
+  const folderName = folderHandle?.name ?? null;
 
   // ── Boot: load from localStorage ──────────────────────────────────────────
   useEffect(() => {
@@ -164,16 +178,85 @@ export default function SlidesApp() {
     historyIdxRef.current = 0;
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
+  // ── Boot: restore folder handle from IDB ──────────────────────────────────
+  useEffect(() => {
+    let cancelled = false;
+
+    async function tryRestoreFolder() {
+      if (!isFileSystemSupported()) return;
+      let handle;
+      try { handle = await loadHandleFromIDB(); } catch { return; }
+      if (!handle || cancelled) return;
+
+      const permitted = await requestPermission(handle);
+      if (!permitted || cancelled) {
+        try { await clearHandleFromIDB(); } catch {}
+        return;
+      }
+
+      const data = await readDeckFromFolder(handle);
+      if (cancelled) return;
+
+      if (!data) {
+        // Empty/new folder — keep current state, just attach handle
+        setFolderHandle(handle);
+        return;
+      }
+
+      const normalized = data.slides.map(s => ({
+        id: s.id || createSlide().id,
+        title: s.title || 'Untitled',
+        code: typeof s.code === 'string' ? s.code : '',
+        notes: s.notes || '',
+        transition: s.transition || 'fade',
+      }));
+
+      setFolderHandle(handle);
+      setDeckTitle(data.deckTitle || INITIAL_DECK.title);
+      setSlides(normalized);
+      setActiveId(normalized[0].id);
+      setIsDirty(false);
+      setStatus(`Loaded from "${handle.name}"`);
+      historyRef.current = [{ slides: normalized, deckTitle: data.deckTitle }];
+      historyIdxRef.current = 0;
+    }
+
+    tryRestoreFolder().catch(() => {});
+    return () => { cancelled = true; };
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
   // ── Auto-save ──────────────────────────────────────────────────────────────
   useEffect(() => {
     if (!slides.length) return;
-    const t = setTimeout(() => {
-      saveDeck(deckTitle, slides);
-      setIsDirty(false);
-      setStatus(s => (s === 'Editing…' || s === 'Unsaved changes' ? 'Auto-saved' : s));
+    const t = setTimeout(async () => {
+      if (folderHandle) {
+        try {
+          await writeDeckToFolder(folderHandle, deckTitle, slides);
+          setIsDirty(false);
+          setStatus(s => (s === 'Editing…' || s === 'Unsaved changes' ? `Saved to "${folderHandle.name}"` : s));
+        } catch {
+          setStatus('Auto-save failed — check folder access');
+          toast('Could not save to folder. Check permissions.');
+        }
+      } else {
+        saveDeck(deckTitle, slides);
+        setIsDirty(false);
+        setStatus(s => (s === 'Editing…' || s === 'Unsaved changes' ? 'Auto-saved' : s));
+      }
     }, 1500);
     return () => clearTimeout(t);
-  }, [slides, deckTitle]);
+  }, [slides, deckTitle, folderHandle]);
+
+  // ── beforeunload: warn when in temp mode with dirty state ─────────────────
+  useEffect(() => {
+    if (folderHandle || !isDirty) return;
+    function handleBeforeUnload(e) {
+      e.preventDefault();
+      e.returnValue = '';
+    }
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    return () => window.removeEventListener('beforeunload', handleBeforeUnload);
+  }, [folderHandle, isDirty]);
 
   // ── Toast helper ───────────────────────────────────────────────────────────
   function toast(msg) {
@@ -336,12 +419,147 @@ export default function SlidesApp() {
     toast('Exported as JSON');
   }
 
-  // ── Export HTML bundle ─────────────────────────────────────────────────────
-  function exportHTML() {
-    const safe = (deckTitle.trim() || 'deck').toLowerCase().replace(/\s+/g, '-');
-    const html = buildHTMLBundle(deckTitle, slides);
-    downloadFile(`${safe}.html`, html, 'text/html');
-    toast('Exported as HTML');
+  // ── Export to Folder ───────────────────────────────────────────────────────
+  // Writes deck.json + slides/{id}.html — same format that "Open Folder" reads
+  async function exportHTML() {
+    if (!isFileSystemSupported()) {
+      toast('File System Access API is not supported in this browser.');
+      return;
+    }
+    let handle;
+    try {
+      handle = await pickFolder();
+    } catch {
+      return; // user cancelled
+    }
+    try {
+      await writeDeckToFolder(handle, deckTitle, slides);
+      toast(`Exported to "${handle.name}" — open it with "Open Folder"`);
+      setStatus(`Exported to "${handle.name}"`);
+    } catch {
+      toast('Export failed — could not write to folder.');
+    }
+  }
+
+  // ── Open Folder ────────────────────────────────────────────────────────────
+  async function handleOpenFolder() {
+    if (!isFileSystemSupported()) {
+      toast('File System Access API is not supported in this browser.');
+      return;
+    }
+    let handle;
+    try {
+      handle = await pickFolder();
+    } catch {
+      return; // user cancelled the picker
+    }
+
+    let data = null;
+    try {
+      data = await readDeckFromFolder(handle);
+    } catch {
+      toast('Could not read folder contents.');
+      return;
+    }
+
+    if (data) {
+      if (isDirty && !window.confirm(`Opening "${handle.name}" will replace the current unsaved deck. Continue?`)) {
+        return;
+      }
+      const normalized = data.slides.map((s, i) => ({
+        id: s.id || createSlide().id,
+        title: s.title || `Slide ${i + 1}`,
+        code: typeof s.code === 'string' ? s.code : '',
+        notes: s.notes || '',
+        transition: s.transition || 'fade',
+      }));
+      pushHistory();
+      setSlides(normalized);
+      setDeckTitle(data.deckTitle || INITIAL_DECK.title);
+      setActiveId(normalized[0].id);
+      setIsDirty(false);
+      setStatus(`Opened "${handle.name}"`);
+    } else {
+      // Empty or new folder — write current deck into it
+      try {
+        await writeDeckToFolder(handle, deckTitle, slides);
+      } catch {
+        toast('Could not write to folder.');
+        return;
+      }
+      setStatus(`Saved to "${handle.name}"`);
+      setIsDirty(false);
+    }
+
+    try {
+      await saveHandleToIDB(handle);
+    } catch {
+      toast('Folder opened but will not persist across reloads.');
+    }
+    setFolderHandle(handle);
+    toast(`Folder "${handle.name}" opened`);
+  }
+
+  // ── Close Folder ───────────────────────────────────────────────────────────
+  async function handleCloseFolder() {
+    try { await clearHandleFromIDB(); } catch {}
+    setFolderHandle(null);
+    setStatus('Switched to browser storage');
+    toast('Folder detached — saving to browser storage');
+  }
+
+  // ── Export PDF ─────────────────────────────────────────────────────────────
+  function exportPDF() {
+    const pw = window.open('', '_blank');
+    if (!pw) {
+      toast('PDF export blocked — allow pop-ups for this site, then try again.');
+      return;
+    }
+
+    const slidePages = slides
+      .map(
+        (s, i) => `
+  <div class="slide-page">
+    <iframe id="sf${i}" srcdoc="${escapeAttr(s.code)}"
+      sandbox="allow-scripts allow-same-origin"
+      style="width:1280px;height:720px;border:none;display:block;"></iframe>
+  </div>`
+      )
+      .join('');
+
+    pw.document.write(`<!doctype html>
+<html><head>
+  <meta charset="utf-8">
+  <title>${deckTitle.replace(/</g, '&lt;')} \u2014 PDF</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { background: #fff; }
+    .slide-page {
+      width: 1280px;
+      height: 720px;
+      page-break-after: always;
+      break-after: page;
+      overflow: hidden;
+    }
+    .slide-page:last-child { page-break-after: avoid; break-after: avoid; }
+    @page { size: 1280px 720px; margin: 0; }
+  </style>
+</head><body>
+  ${slidePages}
+  <script>
+    var iframes = document.querySelectorAll('iframe');
+    var total = iframes.length;
+    var loaded = 0;
+    function onLoad() {
+      loaded++;
+      if (loaded === total) setTimeout(function() { window.print(); }, 100);
+    }
+    iframes.forEach(function(f) { f.addEventListener('load', onLoad); });
+    if (total === 0) window.print();
+  <\/script>
+</body></html>`);
+    pw.document.close();
+    toast('Opening PDF print dialog\u2026');
   }
 
   // ── Import JSON ────────────────────────────────────────────────────────────
@@ -432,10 +650,14 @@ export default function SlidesApp() {
         onImport={() => fileInputRef.current?.click()}
         onExportJSON={exportJSON}
         onExportHTML={exportHTML}
+        onExportPDF={exportPDF}
         onPresent={() => setIsPresenting(true)}
         onOpenTemplates={() => setShowTemplates(true)}
         onOpenShortcuts={() => setShowShortcuts(true)}
         isDirty={isDirty}
+        folderName={folderName}
+        onOpenFolder={handleOpenFolder}
+        onCloseFolder={handleCloseFolder}
       />
 
       {/* Hidden file input for import */}

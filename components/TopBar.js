@@ -13,10 +13,14 @@ export default function TopBar({
   onImport,
   onExportJSON,
   onExportHTML,
+  onExportPDF,
   onPresent,
   onOpenTemplates,
   onOpenShortcuts,
   isDirty,
+  folderName,
+  onOpenFolder,
+  onCloseFolder,
 }) {
   return (
     <header className="topbar">
@@ -46,6 +50,28 @@ export default function TopBar({
         placeholder="Untitled Deck"
         aria-label="Deck title"
       />
+
+      {/* Folder: badge when open, button when closed */}
+      {folderName ? (
+        <div className="folder-badge">
+          <span className="folder-badge-icon">📁</span>
+          <span className="folder-badge-name" title={folderName}>{folderName}</span>
+          <button
+            className="folder-badge-close"
+            onClick={onCloseFolder}
+            title="Detach folder — revert to browser storage"
+          >✕</button>
+        </div>
+      ) : (
+        <button
+          className="btn btn-ghost btn-sm"
+          onClick={onOpenFolder}
+          title="Open a folder on your PC as a slide deck (Chrome/Edge)"
+          style={{ whiteSpace: 'nowrap' }}
+        >
+          📁 Open Folder
+        </button>
+      )}
 
       <div className="topbar-spacer" />
 
@@ -128,10 +154,18 @@ export default function TopBar({
           <button
             className="btn btn-ghost btn-sm"
             onClick={onExportHTML}
-            title="Export as standalone HTML file"
+            title="Export deck to a folder (deck.json + slides/) — re-openable with Open Folder"
+            style={{ borderRadius: 0, borderRight: 0 }}
+          >
+            Export Folder
+          </button>
+          <button
+            className="btn btn-ghost btn-sm"
+            onClick={onExportPDF}
+            title="Export all slides as PDF via print dialog"
             style={{ borderRadius: '0 var(--r) var(--r) 0' }}
           >
-            Export HTML
+            Export PDF
           </button>
         </div>
       </div>
