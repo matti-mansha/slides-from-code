@@ -1,6 +1,7 @@
 'use client';
 
 import { useRef, useState, useEffect } from 'react';
+import { ensureInterFont } from '@/lib/slideUtils';
 
 /* ─── Thumbnail iframe (same pattern as Sidebar) ─────────────────────────── */
 function ThumbIframe({ code, title }) {
@@ -22,7 +23,7 @@ function ThumbIframe({ code, title }) {
       <iframe
         title={title}
         sandbox="allow-scripts allow-same-origin"
-        srcDoc={code}
+        srcDoc={ensureInterFont(code)}
         style={{
           position: 'absolute',
           top: 0,

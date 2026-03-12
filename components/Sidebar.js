@@ -1,6 +1,7 @@
 'use client';
 
 import { useRef, useState, useEffect } from 'react';
+import { ensureInterFont } from '@/lib/slideUtils';
 
 /* ─── Thumbnail iframe ───────────────────────────────────────────────────────
    Renders the slide at its natural 1280×720 size, then scales it down to fill
@@ -25,7 +26,7 @@ function ThumbIframe({ code, title }) {
       <iframe
         title={title}
         sandbox="allow-scripts allow-same-origin"
-        srcDoc={code}
+        srcDoc={ensureInterFont(code)}
         tabIndex={-1}
         style={{
           position: 'absolute',

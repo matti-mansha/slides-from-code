@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { initialDeck } from '@/lib/defaultDeck';
+import { ensureInterFont } from '@/lib/slideUtils';
 
 function createSlide(index) {
   return {
@@ -261,7 +262,7 @@ export default function SlidesStudio() {
                 onClick={() => setActiveId(slide.id)}
               >
                 <div className="thumb-wrap">
-                  <iframe title={`thumb-${slide.id}`} sandbox="allow-scripts allow-same-origin" srcDoc={slide.code} />
+                  <iframe title={`thumb-${slide.id}`} sandbox="allow-scripts allow-same-origin" srcDoc={ensureInterFont(slide.code)} />
                 </div>
                 <div className="meta">
                   <h3>{index + 1}. {slide.title}</h3>
@@ -315,7 +316,7 @@ export default function SlidesStudio() {
               </div>
             </div>
             <div className="preview-stage">
-              <iframe title="active-slide-preview" sandbox="allow-scripts allow-same-origin" srcDoc={activeSlide?.code || ''} />
+              <iframe title="active-slide-preview" sandbox="allow-scripts allow-same-origin" srcDoc={ensureInterFont(activeSlide?.code || '')} />
             </div>
           </article>
         </section>
@@ -330,7 +331,7 @@ export default function SlidesStudio() {
         <div className="present">
           <button className="close" onClick={() => setPresenting(false)}>Exit (Esc)</button>
           <div className="present-stage">
-            <iframe title="presentation" sandbox="allow-scripts allow-same-origin" srcDoc={activeSlide?.code || ''} />
+            <iframe title="presentation" sandbox="allow-scripts allow-same-origin" srcDoc={ensureInterFont(activeSlide?.code || '')} />
           </div>
           <div className="present-nav">
             <button className="btn ghost" onClick={() => navigateSlide(-1)}>Prev</button>

@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState, useRef } from 'react';
+import { ensureInterFont } from '@/lib/slideUtils';
 
 const ZOOM_STEPS = [25, 50, 75, 100, 125, 150, 200];
 const SLIDE_W = 1280; // natural px — 16:9 base width
@@ -23,7 +24,7 @@ export default function SlidePreview({
 
   // Debounce preview update
   useEffect(() => {
-    const t = setTimeout(() => setRenderedCode(code), 280);
+    const t = setTimeout(() => setRenderedCode(ensureInterFont(code)), 280);
     return () => clearTimeout(t);
   }, [code]);
 

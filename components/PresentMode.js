@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { ensureInterFont } from '@/lib/slideUtils';
 
 const SLIDE_W = 1280;
 const SLIDE_H = 720;
@@ -75,7 +76,7 @@ export default function PresentMode({ slides, startIndex, onClose }) {
           <iframe
             title={`present-${index}`}
             sandbox="allow-scripts allow-same-origin"
-            srcDoc={slide?.code || ''}
+            srcDoc={ensureInterFont(slide?.code || '')}
             style={{
               position: 'absolute',
               top: 0,
